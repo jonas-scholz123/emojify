@@ -1,0 +1,71 @@
+import numpy as np
+import pandas as pd
+import os
+import functools
+import operator
+import json
+from emoji import UNICODE_EMOJI, get_emoji_regexp
+
+posts_dir = r"../posts/"
+
+def get_comments(fpath):
+    with open(fpath, "r") as json_file:
+        comments = json.load(json_file)
+    return comments
+
+def get_weight(upvotes):
+    return 0.2 + np.log2(upvotes)
+
+def is_emoji(word):
+    if word in UNICODE_EMOJI:
+        return True
+    else:
+        return False
+
+def analyse_comments(content, scores, weight):
+
+    emoji_pos = 0
+
+    content_split_emoji = get_emoji_regexp().split(content)
+    split_whitespace = [substr.split() for substr in content_split_emoji]
+    word_list = functools.reduce(operator.concat, split_whitespace)
+
+    #make content iterable and clean emojis off words
+    for word in word_list:
+        if is_emoji(word):
+            emoji = word
+            for i in range(emoji_pos):
+                
+                # once emoji is located loop back until actual word is found
+                prev_word = word_list[emoji_pos - i]
+                if not is_emoji(prev_word) and prev_word.isalpha():
+                    #print("previous word: ", prev_word)
+                    #print("emoji: ", emoji)
+                    if prev_word in scores.index:
+                        scores.loc[prev_word, emoji] += weight
+                    else:
+                        scores.loc[prev_word, emoji] = weight
+                    break
+
+        emoji_pos += 1
+
+# Scores is a dataframe where columns are emojis, rows are words and their crossing is the score
+scores = pd.DataFrame(columns = UNICODE_EMOJI)
+
+for fname in os.listdir(posts_dir):
+
+    comments = get_comments(posts_dir + fname)
+
+    #filter out negative upvotes and 0's
+    comments = [c for c in comments if int(c["ups"]) > 0]
+    
+    for comment in comments:
+        weight = get_weight(comment["ups"])
+        content = comment["body"]
+        analyse_comments(content, scores, weight)
+
+
+
+
+
+

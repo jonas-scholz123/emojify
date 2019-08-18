@@ -25,6 +25,10 @@ class Scraper():
 
     def scrape(self, subreddit, limit = 1):
         ''' Loops through posts in subreddit and saves comment contents as json in self.post_dir'''
+        
+        # if posts folder doesn't exist yet, make it.
+        if "posts" not in os.listdir(r"../"):
+            os.mkdir(r"../posts")
 
         for submission in self.reddit.subreddit(subreddit).top("all", limit = limit):
             post_id = submission.id
