@@ -79,25 +79,52 @@ def read_initial_scores(results_dir):
 
     return scores, best_emojis, analysed_posts
 
-def analyse(posts_dir = r"../posts/", results_dir = "../results/"):
+def save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed):
+
+    scores.to_csv(results_dir + "matrix.csv")
+    with open(results_dir + "analysed.txt", "w") as f:
+        json.dump(analysed_posts, f)
+        f.truncate()
+
+    if not analysis_failed:
+        pd.Series(best_emojis).to_csv(results_dir + "/best_emojis.csv")
+
+    return
+
+def find_best_emojis(scores):
+
+    best_emojis = {}
+    for word in scores.index.tolist():
+        best = scores.loc[word].idxmax(axis = 1)
+        confidence = scores.loc[word, best]
+        best_emojis[word] = (best, confidence)
+
+    return sorted(best_emojis.items(), key = lambda kv: kv[1][1])
+
+
+
+def analyse(posts_dir, results_dir, chunk_size = None):
 
 
     # Scores is a dataframe where columns are emojis, rows are words and their crossing is the score
     scores, best_emojis, analysed_posts = read_initial_scores(results_dir)
-
     to_analyse = [fname for fname in os.listdir(posts_dir) if fname not in analysed_posts]
+    analysis_failed = False
     
-    #progress
+    #progress bar
     i = 0
     total_posts = len(to_analyse)
     print("left to analyse: ", total_posts)
 
     try:
-        for fname in to_analyse[0:50]:
+        if not chunk_size:
+            chunk_size = len(to_analyse)
+
+        for fname in to_analyse[0:chunk_size]:
             print(i/total_posts * 100, "%")
 
             analysed_posts.append(fname)
-            if os.stat(posts_dir + fname).st_size > 5e5: continue
+            if os.stat(posts_dir + fname).st_size > 5e5: continue #skip massive files (spam)
 
             # read comments
             comments = get_comments(posts_dir + fname)
@@ -109,32 +136,18 @@ def analyse(posts_dir = r"../posts/", results_dir = "../results/"):
             for comment in comments:
                 weight = get_weight(comment["ups"])
                 content = comment["body"]
+
+                # updates scores matrix
                 scores = analyse_comments(content, scores, weight)
 
             i += 1
+        best_emojis = find_best_emojis(scores)
 
-        for word in scores.index.tolist():
-            best = scores.loc[word].idxmax(axis = 1)
-            confidence = scores.loc[word, best]
-            best_emojis[word] = (best, confidence)
-    
-        pd.Series(best_emojis).to_csv("../results/best_emojis.csv")
-        
-        sorted_best_emojis = sorted(best_emojis.items(), key = lambda kv: kv[1][1])
-        print(pd.Series(sorted_best_emojis))
+    except:
+        analysis_failed = True
 
     finally:
-
-
-        scores.to_csv("../results/matrix.csv")
-        with open("../results/analysed.txt", "w") as f:
-            json.dump(analysed_posts, f)
-            f.truncate()
-
-    
-
-analyse()
-
+        save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed)
 
 
 
