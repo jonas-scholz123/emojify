@@ -21,24 +21,43 @@ def is_emoji(word):
     else:
         return False
 
+
+def get_grouped_emojis(word_list, emoji_post):
+    
+    grouped_emojis = []
+    previous_emoji = ""
+
+    for word in word_list[emoji_post:]:
+        if is_emoji(word):
+            if word != previous_emoji:
+                grouped_emojis.append(word)
+                previous_emoji = word
+            else:
+                continue
+        else:
+            return "".join(grouped_emojis)
+
 def analyse_comments(content, scores, weight):
 
-    emoji_pos = 0
     
     #clean expressions
     content_split_emoji = get_emoji_regexp().split(content)
     split_whitespace = [substr.split() for substr in content_split_emoji]
     word_list = functools.reduce(operator.concat, split_whitespace)
+
+    #don't seperate based on capitalization
     word_list = [w.lower() for w in word_list]
 
     #make content iterable and clean emojis off words
 
     previous_emoji = ""
 
+    emoji_pos = 0
+
     for word in word_list:
-        #don't seperate based on capitalization
         if is_emoji(word):
-            emoji = word
+            emoji = get_grouped_emojis(word_list, emoji_pos)
+            print(emoji)
             #avoid spammed emojis screwing the ranking
             if emoji == previous_emoji: continue
             for i in range(emoji_pos):
@@ -48,7 +67,7 @@ def analyse_comments(content, scores, weight):
                 if not is_emoji(prev_word) and prev_word.isalpha():
                     #print("previous word: ", prev_word)
                     #print("emoji: ", emoji)
-                    if prev_word in scores.index:
+                    if prev_word in scores.index and emoji in scores.columns:
                         scores.loc[prev_word, emoji] += weight
                     else:
                         scores.loc[prev_word, emoji] = weight
@@ -105,7 +124,6 @@ def find_best_emojis(scores):
 
 def analyse(posts_dir, results_dir, chunk_size = None):
 
-
     # Scores is a dataframe where columns are emojis, rows are words and their crossing is the score
     scores, best_emojis, analysed_posts = read_initial_scores(results_dir)
     to_analyse = [fname for fname in os.listdir(posts_dir) if fname not in analysed_posts]
@@ -116,38 +134,40 @@ def analyse(posts_dir, results_dir, chunk_size = None):
     total_posts = len(to_analyse)
     print("left to analyse: ", total_posts)
 
-    try:
-        if not chunk_size:
-            chunk_size = len(to_analyse)
+    #try:
+    # if chunk size is left undefined, analyse all files that have not been analysed
+    if not chunk_size:
+        chunk_size = len(to_analyse)
 
-        for fname in to_analyse[0:chunk_size]:
-            print(i/total_posts * 100, "%")
+    for fname in to_analyse[0:chunk_size]:
+        print(i/chunk_size * 100, "%")
 
-            analysed_posts.append(fname)
-            if os.stat(posts_dir + fname).st_size > 5e5: continue #skip massive files (spam)
+        analysed_posts.append(fname)
+        if os.stat(posts_dir + fname).st_size > 5e5: continue #skip massive files (spam)
 
-            # read comments
-            comments = get_comments(posts_dir + fname)
+        # read comments
+        comments = get_comments(posts_dir + fname)
 
-            #filter out negative upvotes and 0's
-            comments = [c for c in comments if int(c["ups"]) > 0]
-            
-            # analyse comments
-            for comment in comments:
-                weight = get_weight(comment["ups"])
-                content = comment["body"]
+        #filter out negative upvotes and 0's
+        comments = [c for c in comments if int(c["ups"]) > 0]
+        
+        # analyse comments
+        for comment in comments:
+            weight = get_weight(comment["ups"])
+            content = comment["body"]
 
-                # updates scores matrix
-                scores = analyse_comments(content, scores, weight)
+            # updates scores matrix
+            scores = analyse_comments(content, scores, weight)
 
-            i += 1
-        best_emojis = find_best_emojis(scores)
+        i += 1
+    best_emojis = find_best_emojis(scores)
 
-    except:
-        analysis_failed = True
+    #except:
+    print("ANALYSIS HAS FAILED")
+    analysis_failed = True
 
-    finally:
-        save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed)
+    #finally:
+    save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed)
 
 
 
