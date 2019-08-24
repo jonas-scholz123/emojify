@@ -111,8 +111,10 @@ def save_results(results_dir, scores, best_emojis, analysed_posts, analysis_fail
         f.truncate()
 
     if not analysis_failed:
-        pd.Series(best_emojis).to_csv(results_dir + "/best_emojis.csv")
 
+        with open(results_dir + "best_emojis.txt", "w") as f:
+            json.dump(analysed_posts, f)
+            f.truncate()
     return
 
 def find_best_emojis(scores):
@@ -122,9 +124,9 @@ def find_best_emojis(scores):
         best = scores.loc[word].idxmax(axis = 1)
         confidence = scores.loc[word, best]
         best_emojis[word] = (best, confidence)
+    sorted_tuples = sorted(best_emojis.items(), key = lambda kv: kv[1][1])
 
-    return sorted(best_emojis.items(), key = lambda kv: kv[1][1])
-
+    return {i[0]: i[1] for i in sorted_tuples}
 
 
 def analyse(posts_dir, results_dir, chunk_size = None):
@@ -169,7 +171,7 @@ def analyse(posts_dir, results_dir, chunk_size = None):
     print(best_emojis)
 
     #except:
-    print("ANALYSIS HAS FAILED")
+    #print("ANALYSIS HAS FAILED")
     #analysis_failed = True
 
     #finally:
