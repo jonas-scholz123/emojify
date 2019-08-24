@@ -48,7 +48,7 @@ def analyse_comments(content, scores, weight):
 
     #make content iterable and clean emojis off words
 
-    previous_emoji = "
+    previous_emoji = ""
 
     emoji_pos = 0
     skip_words = 0
