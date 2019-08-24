@@ -113,7 +113,7 @@ def save_results(results_dir, scores, best_emojis, analysed_posts, analysis_fail
     if not analysis_failed:
 
         with open(results_dir + "best_emojis.txt", "w") as f:
-            json.dump(analysed_posts, f)
+            json.dump(best_emojis, f)
             f.truncate()
     return
 

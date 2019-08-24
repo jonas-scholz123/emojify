@@ -15,12 +15,12 @@ print(best_emojis)
 def emojify(string):
     word_list = string.split()
 
-    for word, i in enumerate(word_list):
+    for i, word in enumerate(word_list):
         if word in best_emojis.keys():
-            best_emoji = best_emojis[word]
+            best_emoji = best_emojis[word][0]
             word_list.insert(i + 1, best_emoji)
 
     return " ".join(word_list)
 
-test_text = "hello my name is cummy"
+test_text = "hello my dick name is cummy"
 print(emojify(test_text))
