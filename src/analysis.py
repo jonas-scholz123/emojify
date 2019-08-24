@@ -45,6 +45,7 @@ def analyse_comments(content, scores, weight):
 
     #don't seperate based on capitalization
     word_list = [w.lower() for w in word_list]
+    #print(word_list)
 
     #make content iterable and clean emojis off words
 
@@ -139,12 +140,13 @@ def analyse(posts_dir, results_dir, chunk_size = None):
     #progress bar
     i = 0
     total_posts = len(to_analyse)
-    print("left to analyse: ", total_posts)
 
     #try:
     # if chunk size is left undefined, analyse all files that have not been analysed
     if not chunk_size:
         chunk_size = len(to_analyse)
+
+    print("left to analyse: ", chunk_size)
 
     for fname in to_analyse[0:chunk_size]:
         print(i/chunk_size * 100, "%")
@@ -168,7 +170,7 @@ def analyse(posts_dir, results_dir, chunk_size = None):
 
         i += 1
     best_emojis = find_best_emojis(scores)
-    print(best_emojis)
+    #print(best_emojis)
 
     #except:
     #print("ANALYSIS HAS FAILED")
