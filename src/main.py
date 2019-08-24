@@ -5,7 +5,7 @@ def main(Scraper):
 #    Scraper = Scraper()
 #    reddit = Scraper.make_reddit_obj()
 #    Scraper.scrape("emojipasta", limit = 1000)
-    analyse(posts_dir = r"../posts/", results_dir = "../results/", chunk_size = 15)
+    analyse(posts_dir = r"../posts/", results_dir = "../results/", chunk_size = 150)
     return
 
 main(Scraper)

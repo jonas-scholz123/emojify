@@ -35,7 +35,8 @@ def get_grouped_emojis(word_list, emoji_post):
             else:
                 continue
         else:
-            return "".join(grouped_emojis)
+            break
+    return "".join(grouped_emojis)
 
 def analyse_comments(content, scores, weight):
 
@@ -53,13 +54,20 @@ def analyse_comments(content, scores, weight):
     previous_emoji = ""
 
     emoji_pos = 0
+    skip_words = 0
 
     for word in word_list:
+        if skip_words > 0:
+            emoji_pos += 1
+            skip_words -= 1
+            continue
         if is_emoji(word):
             emoji = get_grouped_emojis(word_list, emoji_pos)
-            print(emoji)
+            skip_words = len(emoji) - 1
             #avoid spammed emojis screwing the ranking
-            if emoji == previous_emoji: continue
+            if emoji == previous_emoji:
+                emoji_pos += 1
+                continue
             for i in range(emoji_pos):
                 
                 # once emoji is located loop back until actual word is found
@@ -161,10 +169,11 @@ def analyse(posts_dir, results_dir, chunk_size = None):
 
         i += 1
     best_emojis = find_best_emojis(scores)
+    print(best_emojis)
 
     #except:
     print("ANALYSIS HAS FAILED")
-    analysis_failed = True
+    #analysis_failed = True
 
     #finally:
     save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed)
