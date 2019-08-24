@@ -16,10 +16,7 @@ def get_weight(upvotes):
     return 0.2 + np.log2(upvotes)
 
 def is_emoji(word):
-    if word in UNICODE_EMOJI:
-        return True
-    else:
-        return False
+    return word in UNICODE_EMOJI
 
 
 def get_grouped_emojis(word_list, emoji_post):
@@ -51,7 +48,7 @@ def analyse_comments(content, scores, weight):
 
     #make content iterable and clean emojis off words
 
-    previous_emoji = ""
+    previous_emoji = "
 
     emoji_pos = 0
     skip_words = 0

@@ -10,6 +10,3 @@ def emojify(string):
         if word in scores.index.tolist():
             emoj
         i += 1
-
-
-
