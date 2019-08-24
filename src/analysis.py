@@ -35,9 +35,56 @@ def get_grouped_emojis(word_list, emoji_post):
             break
     return "".join(grouped_emojis)
 
-def analyse_comments(content, scores, weight):
 
+def read_initial_scores(results_dir):
     
+    files = os.listdir(results_dir)
+
+    best_emojis = {}
+    
+    if "scores.txt" in files:
+        with open(results_dir + "scores.txt", "r") as f:
+            scores = json.load(f)
+    else:
+        scores = {}
+
+    if "analysed.txt" in files:
+        with open(results_dir + "analysed.txt", "r") as f:
+            analysed_posts = json.load(f)
+    else:
+        analysed_posts = []
+
+    return scores, best_emojis, analysed_posts
+
+def save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed):
+
+    with open(results_dir + "scores.txt", "w") as f:
+        json.dump(scores, f)
+        f.truncate()
+
+    with open(results_dir + "analysed.txt", "w") as f:
+        json.dump(analysed_posts, f)
+        f.truncate()
+
+    if not analysis_failed:
+        with open(results_dir + "best_emojis.txt", "w") as f:
+            json.dump(best_emojis, f)
+            f.truncate()
+    return
+
+def find_best_emojis(scores):
+
+    best_emojis = {}
+    for word, emojis in scores.items():
+        best = max(emojis, key = emojis.get)
+        confidence = emojis[best]
+        best_emojis[word] = (best, confidence)
+    sorted_tuples = sorted(best_emojis.items(), key = lambda kv: kv[1][1])
+
+    return {i[0]: i[1] for i in sorted_tuples}
+
+def analyse_comment(content, scores, weight):
+
     #clean expressions
     content_split_emoji = get_emoji_regexp().split(content)
     split_whitespace = [substr.split() for substr in content_split_emoji]
@@ -51,14 +98,19 @@ def analyse_comments(content, scores, weight):
 
     previous_emoji = ""
 
-    emoji_pos = 0
-    skip_words = 0
+    # a counter of how many emojis it skips after a group of emojis
 
-    for word in word_list:
+    skip_words = 0
+    
+    # stores pairs of word/emoji so that one comment does not contribute the same combo twice
+    previously_encountered = {}
+
+    for emoji_pos, word in enumerate(word_list):
+
         if skip_words > 0:
-            emoji_pos += 1
             skip_words -= 1
             continue
+
         if is_emoji(word):
             emoji = get_grouped_emojis(word_list, emoji_pos)
             skip_words = len(emoji) - 1
@@ -67,68 +119,36 @@ def analyse_comments(content, scores, weight):
                 emoji_pos += 1
                 continue
             for i in range(emoji_pos):
-                
                 # once emoji is located loop back until actual word is found
                 prev_word = word_list[emoji_pos - i]
                 if not is_emoji(prev_word) and prev_word.isalpha():
-                    #print("previous word: ", prev_word)
-                    #print("emoji: ", emoji)
-                    if prev_word in scores.index and emoji in scores.columns:
-                        scores.loc[prev_word, emoji] += weight
+                    
+                    # avoid double contribution from same comment
+                    if (prev_word in previously_encountered.keys() 
+                            and previously_encountered[prev_word] == emoji):
+                        continue
+
+                    #add to previously encountered combos:
+                    previously_encountered[prev_word] = emoji
+
+                #    if prev_word in scores.index and emoji in scores.columns:
+                #        scores.at[prev_word, emoji] += weight
+                #    else:
+                #        scores.set_value(prev_word, emoji, weight)
+                #        previous_emoji = emoji
+
+                    if prev_word in scores.keys() and emoji in scores[prev_word].keys():
+                        scores[prev_word][emoji] += weight
                     else:
-                        scores.loc[prev_word, emoji] = weight
+                        #print("previous: ", scores)
+                        scores[prev_word] = {emoji: weight}
+                        #print("post: ", scores)
                         previous_emoji = emoji
+
                     break
 
-        emoji_pos += 1
 
     return scores
-
-def read_initial_scores(results_dir):
-    
-    files = os.listdir(results_dir)
-
-    best_emojis = {}
-    
-    if "matrix.csv" in files:
-        scores = pd.read_csv(results_dir + "matrix.csv", index_col = 0)
-        scores = scores.astype(np.float64)
-    else:
-        scores = pd.DataFrame(columns = UNICODE_EMOJI, dtype = np.float64)
-
-    if "analysed.txt" in files:
-        with open(results_dir + "analysed.txt", "r") as f:
-            analysed_posts = json.load(f)
-    else:
-        analysed_posts = []
-
-    return scores, best_emojis, analysed_posts
-
-def save_results(results_dir, scores, best_emojis, analysed_posts, analysis_failed):
-
-    scores.to_csv(results_dir + "matrix.csv")
-    with open(results_dir + "analysed.txt", "w") as f:
-        json.dump(analysed_posts, f)
-        f.truncate()
-
-    if not analysis_failed:
-
-        with open(results_dir + "best_emojis.txt", "w") as f:
-            json.dump(best_emojis, f)
-            f.truncate()
-    return
-
-def find_best_emojis(scores):
-
-    best_emojis = {}
-    for word in scores.index.tolist():
-        best = scores.loc[word].idxmax(axis = 1)
-        confidence = scores.loc[word, best]
-        best_emojis[word] = (best, confidence)
-    sorted_tuples = sorted(best_emojis.items(), key = lambda kv: kv[1][1])
-
-    return {i[0]: i[1] for i in sorted_tuples}
-
 
 def analyse(posts_dir, results_dir, chunk_size = None):
 
@@ -136,7 +156,7 @@ def analyse(posts_dir, results_dir, chunk_size = None):
     scores, best_emojis, analysed_posts = read_initial_scores(results_dir)
     to_analyse = [fname for fname in os.listdir(posts_dir) if fname not in analysed_posts]
     analysis_failed = False
-    
+
     #progress bar
     i = 0
     total_posts = len(to_analyse)
@@ -166,11 +186,12 @@ def analyse(posts_dir, results_dir, chunk_size = None):
             content = comment["body"]
 
             # updates scores matrix
-            scores = analyse_comments(content, scores, weight)
+            scores = analyse_comment(content, scores, weight)
 
         i += 1
+
     best_emojis = find_best_emojis(scores)
-    #print(best_emojis)
+    print("unique words analysed: ", len(best_emojis))
 
     #except:
     #print("ANALYSIS HAS FAILED")
