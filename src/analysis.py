@@ -124,8 +124,10 @@ def analyse_comment(content, scores, weight):
             if emoji == previous_emoji:
                 emoji_pos += 1
                 continue
-            for i in range(emoji_pos):
+            for i in range(-3, 6):
                 # once emoji is located loop back until actual word is found
+                if emoji_pos - i not in range(len(word_list)):
+                    continue
                 prev_word = word_list[emoji_pos - i]
                 if not is_emoji(prev_word) and prev_word.isalpha():
                     
@@ -139,17 +141,14 @@ def analyse_comment(content, scores, weight):
 
                     if prev_word in scores.keys():
                         if emoji in scores[prev_word].keys():
-                            scores[prev_word][emoji] += weight
+                            scores[prev_word][emoji] += weight / abs(i)
                         else:
-                            scores[prev_word][emoji] = weight
+                            scores[prev_word][emoji] = weight / abs(i)
                     else:
                         #print("previous: ", scores)
-                        scores[prev_word] = {emoji: weight}
+                        scores[prev_word] = {emoji: weight / abs(i)}
                         #print("post: ", scores)
                         previous_emoji = emoji
-
-                    break
-
 
     return scores
 
