@@ -1,6 +1,13 @@
 # parsed posts
 posts/
 
+# experimental stuff
+
+combine_models.py
+src/embedding.py
+emoji2vec/
+
+
 #vim stuff
 *~
 
