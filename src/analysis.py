@@ -1,4 +1,5 @@
 import numpy as np
+from nltk.corpus import stopwords
 import pandas as pd
 import os
 import functools
@@ -79,11 +80,16 @@ def find_best_emojis(scores):
         best = max(emojis, key = emojis.get)
         confidence = emojis[best]
         best_emojis[word] = (best, confidence)
-    sorted_tuples = sorted(best_emojis.items(), key = lambda kv: kv[1][1])
+    sorted_tuples = sorted(best_emojis.items(), key = lambda kv: kv[1][1], reverse = True)
+    nr_emojis = len(sorted_tuples)
+    #sorted_tuples = sorted_tuples[0: int(0.25*nr_emojis)]
+
 
     return {i[0]: i[1] for i in sorted_tuples}
 
 def analyse_comment(content, scores, weight):
+
+    stop_words = set(stopwords.words('english')) 
 
     #clean expressions
     content_split_emoji = get_emoji_regexp().split(content)
@@ -91,7 +97,7 @@ def analyse_comment(content, scores, weight):
     word_list = functools.reduce(operator.concat, split_whitespace)
 
     #don't seperate based on capitalization
-    word_list = [w.lower() for w in word_list]
+    word_list = [w.lower() for w in word_list if w not in stop_words]
     #print(word_list)
 
     #make content iterable and clean emojis off words
@@ -131,14 +137,11 @@ def analyse_comment(content, scores, weight):
                     #add to previously encountered combos:
                     previously_encountered[prev_word] = emoji
 
-                #    if prev_word in scores.index and emoji in scores.columns:
-                #        scores.at[prev_word, emoji] += weight
-                #    else:
-                #        scores.set_value(prev_word, emoji, weight)
-                #        previous_emoji = emoji
-
-                    if prev_word in scores.keys() and emoji in scores[prev_word].keys():
-                        scores[prev_word][emoji] += weight
+                    if prev_word in scores.keys():
+                        if emoji in scores[prev_word].keys():
+                            scores[prev_word][emoji] += weight
+                        else:
+                            scores[prev_word][emoji] = weight
                     else:
                         #print("previous: ", scores)
                         scores[prev_word] = {emoji: weight}
@@ -168,7 +171,7 @@ def analyse(posts_dir, results_dir, chunk_size = None):
 
     print("left to analyse: ", chunk_size)
 
-    for fname in to_analyse[0:chunk_size]:
+    for i, fname in enumerate(to_analyse[0:chunk_size]):
         print(i/chunk_size * 100, "%")
 
         analysed_posts.append(fname)
@@ -188,10 +191,9 @@ def analyse(posts_dir, results_dir, chunk_size = None):
             # updates scores matrix
             scores = analyse_comment(content, scores, weight)
 
-        i += 1
 
+    print("unique words analysed: ", len(scores))
     best_emojis = find_best_emojis(scores)
-    print("unique words analysed: ", len(best_emojis))
 
     #except:
     #print("ANALYSIS HAS FAILED")
